@@ -90,7 +90,7 @@ def send_telegram(text):
         "parse_mode": "HTML",
     }).encode()
     try:
-        urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=20).read()
+        urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=60).read()
         return True
     except Exception as e:
         log(f"Erreur Telegram : {e}")
