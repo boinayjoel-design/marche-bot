@@ -50,6 +50,7 @@ FEEDS = [
     "https://news.google.com/rss/search?q=Trump+tariffs+when:1d&hl=en-US&gl=US&ceid=US:en",
     "https://news.google.com/rss/search?q=Iran+oil+when:1d&hl=en-US&gl=US&ceid=US:en",
     "https://news.google.com/rss/search?q=Nasdaq+OR+%22Wall+Street%22+when:1d&hl=en-US&gl=US&ceid=US:en",
+    "https://www.coindesk.com/arc/outboundfeeds/rss/",
 ]
 
 # Mots-clés qui déclenchent une alerte (dans le titre)
@@ -61,6 +62,8 @@ KEYWORDS = [
     "bitcoin", "china", "export ban", "chip", "openai", "microsoft", "apple", "amazon",
     "meta ", "google", "alphabet", "tesla", "earnings", "downgrade", "upgrade", "shutdown",
     "default", "bank failure", "emergency",
+    "solana", "chainlink", "sui ", "injective", "xrp", "ripple", "cardano", "ethereum", "kaspa", "avalanche", "avax", "pyth", "crypto", "binance", "coinbase", "stablecoin", "btc", "gold ", "bullion",
+    "jobless claims", "retail sales", "ism ", "gdp", "treasury yield", "powell", "broadcom", "amd ", "tsmc", "asml", "micron", "palantir", "netflix", "taiwan", "opec", "debt ceiling", "recession",
 ]
 
 # Calendrier macro (heure de New York). Dates vérifiées au 9 nov. 2026 ;
