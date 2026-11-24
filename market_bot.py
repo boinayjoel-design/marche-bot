@@ -84,22 +84,39 @@ def http_get(url, timeout=20):
         return r.read()
 
 
+TG_BLOQUE = False  # passe a True si Telegram bloque : on arrete d'insister pour ce passage
+
+
 def send_telegram(text):
+    global TG_BLOQUE
+    if TG_BLOQUE:
+        return False
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN.strip()}/sendMessage"
     data = urllib.parse.urlencode({
         "chat_id": str(CHAT_ID).strip(), "text": text, "disable_web_page_preview": "true",
         "parse_mode": "HTML",
     }).encode()
-    for essai in range(4):
+    for essai in range(2):
         try:
-            urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=60).read()
+            urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=30).read()
             time.sleep(1.5)  # evite le blocage anti-spam de Telegram
             return True
         except urllib.error.HTTPError as e:
+            corps = ""
+            try:
+                corps = e.read().decode("utf-8", "ignore")[:200]
+            except Exception:
+                pass
             if e.code == 429:
-                time.sleep(5 * (essai + 1))
+                m = re.search(r"retry_after\D+(\d+)", corps)
+                attente = int(m.group(1)) if m else 10
+                log(f"Telegram demande d'attendre {attente}s : {corps}")
+                if attente > 20 or essai == 1:
+                    TG_BLOQUE = True
+                    return False
+                time.sleep(attente + 1)
                 continue
-            log(f"Erreur Telegram : {e}")
+            log(f"Erreur Telegram : {e} {corps}")
             return False
         except Exception as e:
             log(f"Erreur Telegram : {e}")
@@ -162,19 +179,25 @@ def check_news(state, first_run):
             if key in seen:
                 continue
             seen.add(key)
-            state["seen"].append(key)
             if first_run:
+                state["seen"].append(key)
                 continue
             if dt and now - dt > timedelta(minutes=NEWS_MAX_AGE_MINUTES):
+                state["seen"].append(key)
                 continue
             low = title.lower() + " "
             if any(k in low for k in KEYWORDS):
                 when = dt.astimezone(ZURICH).strftime("%H:%M") if dt else "?"
-                alerts.append((dt or now, title, link, when))
+                alerts.append((dt or now, title, link, when, key))
+            else:
+                state["seen"].append(key)
     alerts.sort(key=lambda a: a[0])
-    for _, title, link, when in alerts[:6]:
-        send_telegram(f"📰 <b>NEWS</b> ({when} heure suisse)\n{esc(title)}\n{link}")
-        log(f"News envoyée : {title[:70]}")
+    for _, title, link, when, key in alerts[:6]:
+        if send_telegram(f"📰 <b>NEWS</b> ({when} heure suisse)\n{esc(title)}\n{link}"):
+            state["seen"].append(key)
+            log(f"News envoyée : {title[:70]}")
+    for _, title, link, when, key in alerts[6:]:
+        state["seen"].append(key)
     if len(alerts) > 6:
         send_telegram(f"📰 Et {len(alerts) - 6} autres news importantes (liste coupée).")
 
@@ -299,8 +322,9 @@ def run_once():
         state["chat_id"] = cid
         CHAT_ID = str(cid)
     first_run = not state["seen"]
-    if first_run:
-        send_telegram("✅ Bot marché démarré. Je surveille : news, prix (NAS/SP/DJ) et calendrier macro.")
+    if not state.get("hello"):
+        if send_telegram("✅ Bot marché démarré. Je surveille : news, prix (NAS/SP/DJ) et calendrier macro."):
+            state["hello"] = True
     check_news(state, first_run)
     check_prices(state)
     check_calendar(state)
