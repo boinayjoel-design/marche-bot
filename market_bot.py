@@ -20,8 +20,8 @@ from email.utils import parsedate_to_datetime
 from zoneinfo import ZoneInfo
 
 # ======================= RÉGLAGES (à remplir) =======================
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "COLLE_TON_TOKEN_ICI")
-CHAT_ID = os.environ.get("CHAT_ID", "COLLE_TON_CHAT_ID_ICI")
+TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN") or "COLLE_TON_TOKEN_ICI"
+CHAT_ID = os.environ.get("CHAT_ID") or "COLLE_TON_CHAT_ID_ICI"
 
 CHECK_EVERY_SECONDS = 60          # fréquence de vérification
 PRICE_ALERT_PERCENT = 0.5         # alerte si mouvement >= 0,5 % ...
@@ -264,10 +264,30 @@ def main():
 
 def run_once():
     """Un seul passage (pour GitHub Actions, lancé toutes les 5 minutes)."""
-    if "COLLE_TON" in TELEGRAM_TOKEN or "COLLE_TON" in CHAT_ID:
-        print("TELEGRAM_TOKEN / CHAT_ID manquants.")
+    global CHAT_ID
+    CHAT_ID = CHAT_ID or "COLLE_TON_CHAT_ID_ICI"
+    if "COLLE_TON" in TELEGRAM_TOKEN:
+        print("TELEGRAM_TOKEN manquant.")
         sys.exit(1)
     state = load_state()
+    if "COLLE_TON" in CHAT_ID:
+        # CHAT_ID non fourni : on le retrouve automatiquement (il faut avoir écrit au bot)
+        cid = state.get("chat_id")
+        if not cid:
+            try:
+                data = json.loads(http_get(f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates"))
+                for u in data.get("result", []):
+                    c = (u.get("message") or {}).get("chat")
+                    if c:
+                        cid = c["id"]
+                        break
+            except Exception as e:
+                log(f"getUpdates en erreur : {e}")
+        if not cid:
+            print("Chat introuvable : ouvre ton bot dans Telegram et écris-lui 'salut'.")
+            sys.exit(1)
+        state["chat_id"] = cid
+        CHAT_ID = str(cid)
     first_run = not state["seen"]
     if first_run:
         send_telegram("✅ Bot marché démarré. Je surveille : news, prix (NAS/SP/DJ) et calendrier macro.")
