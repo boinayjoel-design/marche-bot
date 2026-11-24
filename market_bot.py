@@ -12,6 +12,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -84,17 +85,26 @@ def http_get(url, timeout=20):
 
 
 def send_telegram(text):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN.strip()}/sendMessage"
     data = urllib.parse.urlencode({
-        "chat_id": CHAT_ID, "text": text, "disable_web_page_preview": "true",
+        "chat_id": str(CHAT_ID).strip(), "text": text, "disable_web_page_preview": "true",
         "parse_mode": "HTML",
     }).encode()
-    try:
-        urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=60).read()
-        return True
-    except Exception as e:
-        log(f"Erreur Telegram : {e}")
-        return False
+    for essai in range(4):
+        try:
+            urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=60).read()
+            time.sleep(1.5)  # evite le blocage anti-spam de Telegram
+            return True
+        except urllib.error.HTTPError as e:
+            if e.code == 429:
+                time.sleep(5 * (essai + 1))
+                continue
+            log(f"Erreur Telegram : {e}")
+            return False
+        except Exception as e:
+            log(f"Erreur Telegram : {e}")
+            time.sleep(3)
+    return False
 
 
 def load_state():
